@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LearnGraph AI {% block title %}{% endblock %}</title>
+{% load static %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #060810;
+  --surface: #0c0f1a;
+  --card: #111520;
+  --card2: #161b2e;
+  --border: #1e2640;
+  --border2: #252d45;
+  --accent: #4f8ef7;
+  --accent2: #6366f1;
+  --green: #22c55e;
+  --yellow: #eab308;
+  --red: #ef4444;
+  --purple: #a855f7;
+  --cyan: #06b6d4;
+  --orange: #f97316;
+  --text: #f0f4ff;
+  --muted: #5a6585;
+  --muted2: #acb8d2;
+  --sidebar-w: 240px;
+  --glow: 0 0 40px rgba(79,142,247,0.08);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Inter", sans-serif;
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── SIDEBAR ─────────────────────────────── */
+.sidebar {
+  width: var(--sidebar-w);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+
+.sidebar-logo {
+  padding: 22px 18px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.logo-icon {
+  width: 38px; height: 38px;
+  background: linear-gradient(135deg, var(--accent2), var(--accent));
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+  box-shadow: 0 4px 15px rgba(99,102,241,0.3);
+}
+.logo-text { font-size: 15px; font-weight: 800; color: var(--text); letter-spacing: -0.3px; }
+.logo-sub { font-size: 9px; color: var(--accent); letter-spacing: 2px; font-weight: 600; margin-top: 1px; }
+
+.sidebar-section { padding: 14px 12px 8px; border-bottom: 1px solid var(--border); }
+.sidebar-label {
+  font-size: 9px; color: var(--muted); letter-spacing: 2px;
+  font-weight: 700; padding: 0 8px; margin-bottom: 8px; text-transform: uppercase;
+}
+
+.subject-btn {
+  width: 100%; padding: 9px 12px;
+  border-radius: 8px; border: 1px solid transparent;
+  background: none; color: var(--muted2);
+  cursor: pointer; font-size: 12px; font-weight: 600;
+  text-align: left; font-family: inherit;
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 2px; text-decoration: none;
+  transition: all 0.15s;
+}
+.subject-btn:hover { background: var(--card); color: var(--text); }
+.subject-btn.active {
+  border-color: var(--subject-color, var(--accent)) !important;
+  background: color-mix(in srgb, var(--subject-color, var(--accent)) 12%, transparent) !important;
+  color: var(--subject-color, var(--accent)) !important;
+}
+.subject-icon { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+
+.nav-section { padding: 12px; flex: 1; }
+.nav-btn {
+  width: 100%; padding: 10px 12px;
+  border-radius: 8px; border: 1px solid transparent;
+  background: none; color: var(--muted);
+  cursor: pointer; font-size: 13px;
+  text-align: left; font-family: inherit; font-weight: 500;
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 2px; text-decoration: none;
+  transition: all 0.15s;
+}
+.nav-btn:hover { background: var(--card); color: var(--text); }
+.nav-btn.active {
+  background: color-mix(in srgb, var(--accent2) 15%, transparent);
+  border-color: color-mix(in srgb, var(--accent2) 35%, transparent);
+  color: var(--text); font-weight: 700;
+}
+.nav-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+.nav-btn.active .nav-icon { background: color-mix(in srgb, var(--accent2) 20%, transparent); }
+
+.sidebar-footer {
+  padding: 14px 18px;
+  border-top: 1px solid var(--border);
+  font-size: 11px; color: var(--muted); line-height: 1.5;
+}
+.sidebar-footer strong { color: var(--accent); display: block; margin-bottom: 2px; font-size: 12px; }
+
+/* ── MAIN ──────────────────────────────── */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+.topbar {
+  height: 56px; background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 24px; gap: 12px; flex-shrink: 0;
+}
+.topbar-title { font-size: 15px; font-weight: 700; color: var(--text); }
+.topbar-sub { font-size: 13px; color: var(--muted); }
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+.user-chip {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--card); border: 1px solid var(--border2);
+  border-radius: 24px; padding: 6px 14px 6px 6px;
+}
+.user-avatar {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent2), var(--accent));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 800; color: #fff;
+}
+.user-name { font-size: 13px; color: var(--text); font-weight: 600; }
+.signout-btn {
+  padding: 7px 16px; background: var(--card);
+  border: 1px solid var(--border2); border-radius: 24px;
+  color: var(--muted2); font-size: 12px; font-weight: 600;
+  text-decoration: none; transition: all 0.15s; font-family: inherit; cursor: pointer;
+}
+.signout-btn:hover { border-color: var(--red); color: var(--red); background: color-mix(in srgb,var(--red) 8%,transparent); }
+
+.content { flex: 1; overflow-y: auto; }
+
+/* ── COMPONENTS ────────────────────────── */
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 22px; }
+.card-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 16px; }
+
+.badge { font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 700; display: inline-block; }
+.badge-green { background:color-mix(in srgb,var(--green) 15%,transparent); color:var(--green); border:1px solid color-mix(in srgb,var(--green) 30%,transparent); }
+.badge-yellow { background:color-mix(in srgb,var(--yellow) 15%,transparent); color:var(--yellow); border:1px solid color-mix(in srgb,var(--yellow) 30%,transparent); }
+.badge-red { background:color-mix(in srgb,var(--red) 15%,transparent); color:var(--red); border:1px solid color-mix(in srgb,var(--red) 30%,transparent); }
+.badge-blue { background:color-mix(in srgb,var(--accent) 15%,transparent); color:var(--accent); border:1px solid color-mix(in srgb,var(--accent) 30%,transparent); }
+.badge-purple { background:color-mix(in srgb,var(--purple) 15%,transparent); color:var(--purple); border:1px solid color-mix(in srgb,var(--purple) 30%,transparent); }
+
+.progress-track { height: 6px; background: var(--surface); border-radius: 3px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 3px; transition: width 1s ease; }
+
+.btn { padding: 11px 22px; border: none; border-radius: 10px; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 600; transition: all 0.15s; display: inline-flex; align-items: center; gap: 8px; }
+.btn-primary { background: linear-gradient(135deg, var(--accent2), var(--accent)); color: #fff; box-shadow: 0 4px 15px rgba(99,102,241,0.25); }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,102,241,0.35); }
+.btn-ghost { background: var(--card); border: 1px solid var(--border2); color: var(--text); }
+.btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+.btn-sm { padding: 7px 16px; font-size: 12px; border-radius: 8px; }
+
+.input { width: 100%; padding: 12px 16px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-family: inherit; font-size: 14px; outline: none; transition: border-color 0.15s; }
+.input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,142,247,0.1); }
+.input::placeholder { color: var(--muted); }
+
+.stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px 22px; position: relative; overflow: hidden; }
+.stat-card::before { content:""; position:absolute; top:0; right:0; width:80px; height:80px; border-radius:50%; opacity:0.06; }
+.stat-icon { font-size: 28px; margin-bottom: 10px; }
+.stat-value { font-size: 32px; font-weight: 900; letter-spacing: -1px; }
+.stat-label { font-size: 12px; color: var(--muted2); margin-top: 4px; font-weight: 500; }
+
+.spinner { display: flex; gap: 6px; align-items: center; }
+.spinner-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: dotBounce 1s ease-in-out infinite; }
+.spinner-dot:nth-child(2) { animation-delay: 0.2s; }
+.spinner-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes dotBounce { 0%,100%{transform:translateY(0);opacity:1} 50%{transform:translateY(-8px);opacity:0.5} }
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+input::placeholder { color: var(--muted); }
+
+button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:3px;}
+button{font-family:inherit;} .btn{min-height:42px;font-size:14px;}
+{% block extra_style %}{% endblock %}
+</style>
+<script>
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+</script>
+<link rel="stylesheet" href="{% static 'learning/studio.css' %}">
+<link rel="stylesheet" href="{% static 'learning/refined.css' %}">
+</head>
+<style>
+  .subject-menu {
+    margin: 4px 0 10px;
+  }
+
+  .subject-menu > .subject-toggle {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .subject-toggle::-webkit-details-marker {
+    display: none;
+  }
+
+  .subject-heading {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .subject-heading small {
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.4;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .subject-chevron {
+    margin-left: auto;
+    transition: transform 0.2s ease;
+  }
+
+  .subject-menu[open] .subject-chevron {
+    transform: rotate(180deg);
+  }
+
+  .subject-menu[open] > .subject-toggle {
+    background: var(--card);
+    color: var(--text);
+  }
+
+  .subject-options {
+    max-height: 320px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    margin: 6px 0 8px 12px;
+    padding: 6px;
+    border-left: 2px solid var(--border);
+  }
+
+  .subject-options .subject-btn {
+    white-space: normal;
+    line-height: 1.4;
+  }
+
+  .subject-options .subject-btn > span:last-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .subjects-empty {
+    padding: 8px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .subject-toggle:focus-visible,
+  .subject-options a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .subject-chevron {
+      transition: none;
+    }
+  }
+</style>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <img class="brand-mark" src="{% static 'learning/brand.svg' %}" alt="" width="44" height="44">
+    <div>
+      <div class="logo-text">LearnGraph</div>
+      <div class="logo-sub">AI PLATFORM</div>
+    </div>
+  </div>
+
+  <nav class="nav-section" aria-label="Main navigation">
+    {% if user.is_superuser %}
+      <div class="sidebar-label">Administration</div>
+      <a href="/manage/" class="nav-btn {% if request.path == '/manage/' %}active{% endif %}">⚙️ Admin Dashboard</a>
+      <a href="/manage/accounts/" class="nav-btn">👥 Students & Teachers</a>
+      <a href="/manage/curriculum/" class="nav-btn">📚 Subjects & Concepts</a>
+      <a href="/teach/" class="nav-btn">🏫 Classes & Assessments</a>
+      <a href="/teach/questions/" class="nav-btn">✓ Question Review</a>
+      <a href="/teach/questions/import/" class="nav-btn">↥ Bulk Import</a>
+      <a href="/teach/reports/" class="nav-btn">📊 Reports & Exam Certificates</a>
+      <a href="/teach/completion/" class="nav-btn">🎓 Course Certificates</a>
+      <a href="/teach/usage/" class="nav-btn">✦ AI Usage</a>
+      <a href="/teach/audit/" class="nav-btn">☷ Audit Log</a>
+      <a href="/admin/" class="nav-btn">Advanced Administration ↗</a>
+    {% elif is_teacher %}
+      <div class="sidebar-label">Teaching</div>
+      <a href="/teach/" class="nav-btn {% if request.path == '/teach/' %}active{% endif %}">🏫 Teaching Studio</a>
+      <a href="/teach/" class="nav-btn">📋 My Classes & Assignments</a>
+      <a href="/teach/questions/" class="nav-btn">✓ Question Review</a>
+      <a href="/teach/questions/import/" class="nav-btn">↥ Import Questions</a>
+      <a href="/teach/reports/" class="nav-btn">📊 Results & Reports</a>
+      <a href="/teach/completion/" class="nav-btn">🎓 Course Certificates</a>
+      <a href="/teach/audit/" class="nav-btn">☷ Activity Log</a>
+    {% else %}
+
+    <a href="{% url 'home' %}"
+       class="nav-btn {% if page == 'home' %}active{% endif %}">
+      <span class="nav-icon">🏠</span>
+      Home
+    </a>
+
+    <details class="subject-menu">
+      <summary class="nav-btn subject-toggle">
+        <span class="nav-icon">📚</span>
+
+        <span class="subject-heading">
+          <span>Subjects</span>
+          <small>
+            {% if active_subject %}
+              {{ active_subject.name }}
+            {% else %}
+              Choose a subject
+            {% endif %}
+          </small>
+        </span>
+
+        <span class="subject-chevron" aria-hidden="true">▾</span>
+      </summary>
+
+      <div class="subject-options">
+        {% for s in subjects %}
+          <a href="{% url 'set_subject' s.id %}?next={{ request.path|urlencode }}"
+             class="subject-btn {% if s.id == active_subject.id %}active{% endif %}"
+             {% if s.id == active_subject.id %}aria-current="true"{% endif %}>
+            <span class="subject-icon">{{ s.icon }}</span>
+            <span>{{ s.name }}</span>
+          </a>
+        {% empty %}
+          <p class="subjects-empty">No subjects added yet.</p>
+        {% endfor %}
+      </div>
+    </details>
+
+    <a href="{% url 'graph' %}"
+       class="nav-btn {% if page == 'graph' %}active{% endif %}">
+      <span class="nav-icon">🕸️</span>
+      Concept Graph
+    </a>
+
+    <a href="{% url 'quiz' %}"
+       class="nav-btn {% if page == 'quiz' %}active{% endif %}">
+      <span class="nav-icon">📝</span>
+      Quiz
+    </a>
+
+    <a href="{% url 'path' %}"
+       class="nav-btn {% if page == 'path' %}active{% endif %}">
+      <span class="nav-icon">🗺️</span>
+      Learning Path
+    </a>
+
+    <a href="{% url 'chatbot' %}"
+       class="nav-btn {% if page == 'chat' %}active{% endif %}">
+      <span class="nav-icon">🤖</span>
+      AI Tutor
+    </a>
+
+    <a href="{% url 'dashboard' %}"
+       class="nav-btn {% if page == 'dashboard' %}active{% endif %}">
+      <span class="nav-icon">📊</span>
+      Dashboard
+    </a>
+
+    <a href="{% url 'analytics' %}"
+       class="nav-btn {% if page == 'analytics' %}active{% endif %}">
+      <span class="nav-icon">📈</span>
+      Analytics
+    </a>
+
+    <a href="/assessments/"
+       class="nav-btn {% if request.path == '/assessments/' %}active{% endif %}">
+      <span class="nav-icon">🎓</span>
+      Assessments & certificates
+    </a>
+
+    <a href="/workspace/"
+       class="nav-btn {% if request.path == '/workspace/' %}active{% endif %}">
+      <span class="nav-icon">💼</span>
+      My workspace
+    </a>
+
+    <a class="nav-btn" href="/completion/">🎓 Course certificates</a>
+    {% endif %}
+  </nav>
+
+  <div class="sidebar-footer">
+    <strong>Powered by Soumen Biswas</strong>
+    LearnGraph · University Platform
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar"><button class="btn btn-ghost mobile-menu" aria-label="Toggle navigation" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+    <span class="topbar-title">{% block topbar_title %}LearnGraph{% endblock %}</span>
+    <span class="topbar-sub">{% if user.is_superuser %}Administrator{% elif is_teacher %}Teacher{% elif active_subject %}· {{ active_subject.name }}{% endif %}</span>
+    <div class="topbar-right">
+      {% block topbar_right %}{% endblock %}
+      {% if user.is_authenticated %}
+      <a href="{% url 'account' %}" class="user-chip" style="text-decoration:none;cursor:pointer" title="Account Settings">
+        <div class="user-avatar">{{ user.first_name|first|upper }}{{ user.last_name|first|upper }}</div>
+        <span class="user-name">{{ user.get_full_name|default:user.username }}</span>
+      </a>
+      <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="signout-btn" type="submit">Sign Out</button></form>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="content">
+    {% block content %}{% endblock %}
+  </div>
+</div>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>

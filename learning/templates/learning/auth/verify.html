@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verify Email — LearnGraph AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#060810;--surface:#0c0f1a;--card:#111520;--border:#1e2640;--accent:#4f8ef7;--accent2:#6366f1;--green:#22c55e;--red:#ef4444;--text:#f0f4ff;--muted:#5a6585;--muted2:#8892b0}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.wrap{width:100%;max-width:420px}
+.logo{text-align:center;margin-bottom:32px}
+.logo-icon{width:52px;height:52px;background:linear-gradient(135deg,var(--accent2),var(--accent));border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 12px;box-shadow:0 8px 24px rgba(99,102,241,0.3)}
+.logo-title{font-size:22px;font-weight:800;letter-spacing:-0.5px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:36px;text-align:center}
+.mail-icon{width:72px;height:72px;background:color-mix(in srgb,var(--accent) 12%,transparent);border:1px solid color-mix(in srgb,var(--accent) 25%,transparent);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:34px;margin:0 auto 20px}
+.card-title{font-size:22px;font-weight:800;margin-bottom:8px;letter-spacing:-0.3px}
+.card-sub{font-size:14px;color:var(--muted2);line-height:1.6;margin-bottom:4px}
+.email-hl{color:var(--accent);font-weight:700}
+.error-box{background:color-mix(in srgb,var(--red) 12%,transparent);border:1px solid color-mix(in srgb,var(--red) 30%,transparent);border-radius:10px;padding:12px 16px;font-size:13px;color:var(--red);margin:16px 0;text-align:left}
+.code-inputs{display:flex;gap:10px;justify-content:center;margin:28px 0}
+.code-input{width:54px;height:64px;background:var(--card);border:2px solid var(--border);border-radius:14px;color:var(--text);font-family:inherit;font-size:26px;font-weight:800;text-align:center;outline:none;transition:all 0.15s}
+.code-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,142,247,0.15)}
+.code-input.filled{border-color:var(--accent);color:var(--accent)}
+.btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--accent2),var(--accent));border:none;border-radius:12px;color:#fff;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 15px rgba(99,102,241,0.3);transition:all 0.15s}
+.btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(99,102,241,0.4)}
+.footer{margin-top:20px;font-size:13px;color:var(--muted2)}
+.footer a{color:var(--accent);text-decoration:none;font-weight:600}
+#timer{color:var(--accent);font-weight:700}
+#timer.expired{color:var(--red)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">
+    <div class="logo-icon">⬡</div>
+    <div class="logo-title">LearnGraph AI</div>
+  </div>
+  <div class="card">
+    <div class="mail-icon">📧</div>
+    <div class="card-title">Check Your Email</div>
+    <div class="card-sub">We sent a 6-digit verification code to</div>
+    <div class="card-sub"><span class="email-hl">{{ email }}</span></div>
+    {% if error %}<div class="error-box">⚠ {{ error }}</div>{% endif %}
+    <form method="POST" id="form">
+      {% csrf_token %}
+      <input type="hidden" name="code" id="full-code">
+      <div class="code-inputs">
+        {% for i in "012345" %}<input type="text" class="code-input" maxlength="1" inputmode="numeric" pattern="[0-9]" id="c{{ i }}">{% endfor %}
+      </div>
+      <button type="submit" class="btn">✓ Verify Email</button>
+    </form>
+    <div class="footer" style="margin-top:16px">
+      Didn't receive it? <form method="post" action="{% url 'resend_code' %}">{% csrf_token %}<button type="submit">Resend Code</button></form>
+    </div>
+    <div class="footer">Code expires in <span id="timer">10:00</span></div>
+  </div>
+</div>
+<script>
+const inputs=document.querySelectorAll('.code-input');
+inputs.forEach((inp,i)=>{
+  inp.addEventListener('input',e=>{
+    e.target.value=e.target.value.replace(/\D/g,'');
+    if(e.target.value){e.target.classList.add('filled');if(i<5)inputs[i+1].focus();}
+    else e.target.classList.remove('filled');
+    collect();
+  });
+  inp.addEventListener('keydown',e=>{if(e.key==='Backspace'&&!inp.value&&i>0){inputs[i-1].focus();inputs[i-1].value='';inputs[i-1].classList.remove('filled');}});
+  inp.addEventListener('paste',e=>{
+    e.preventDefault();
+    const p=(e.clipboardData||window.clipboardData).getData('text').replace(/\D/g,'');
+    for(let j=0;j<6&&j<p.length;j++){inputs[j].value=p[j];inputs[j].classList.add('filled');}
+    inputs[Math.min(p.length,5)].focus();collect();
+  });
+});
+function collect(){
+  const code=Array.from(inputs).map(i=>i.value).join('');
+  document.getElementById('full-code').value=code;
+  if(code.length===6)document.getElementById('form').submit();
+}
+inputs[0].focus();
+let s=600;
+const t=document.getElementById('timer');
+const iv=setInterval(()=>{s--;if(s<=0){clearInterval(iv);t.textContent='Expired';t.classList.add('expired');return;}
+const m=Math.floor(s/60),sc=s%60;t.textContent=m+':'+(sc<10?'0':'')+sc;},1000);
+</script>
+</body>
+</html>

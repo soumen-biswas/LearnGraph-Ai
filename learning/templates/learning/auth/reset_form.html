@@ -1,0 +1,1 @@
+{% extends 'learning/auth/reset_base.html' %}{% block body %}<h1>Reset your password</h1><p>Enter your account email. We will send a secure reset link if an active account exists.</p><form method="post">{% csrf_token %}{{ form.as_p }}<button class="btn-submit">Send reset link</button></form>{% endblock %}

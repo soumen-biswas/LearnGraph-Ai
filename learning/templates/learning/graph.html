@@ -1,0 +1,266 @@
+{% extends "learning/base.html" %}
+{% block title %}— Graph{% endblock %}
+{% block topbar_title %}⬡ Concept Graph{% endblock %}
+
+{% block extra_style %}
+.graph-layout { display: flex; gap: 0; height: 100%; }
+.graph-panel { flex: 1; position: relative; }
+#cy { width: 100%; height: 100%; background: var(--bg); }
+.graph-controls {
+  position: absolute; top: 12px; right: 12px; z-index: 10;
+  display: flex; gap: 6px;
+}
+.ctrl-btn {
+  width: 32px; height: 32px; background: var(--card);
+  border: 1px solid var(--border2); border-radius: 6px;
+  color: var(--muted2); cursor: pointer; font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.ctrl-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.graph-legend {
+  position: absolute; bottom: 12px; left: 12px; z-index: 10;
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.legend-item {
+  display: flex; align-items: center; gap: 5px;
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  border-radius: 20px; padding: 3px 10px; font-size: 11px;
+}
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+.graph-hint {
+  position: absolute; top: 12px; left: 12px; z-index: 10;
+  color: var(--muted); font-size: 11px;
+  background: color-mix(in srgb, var(--card) 90%, transparent);
+  border-radius: 6px; padding: 4px 10px;
+}
+
+.side-info {
+  width: 280px; border-left: 1px solid var(--border);
+  background: var(--surface); display: flex; flex-direction: column;
+  overflow-y: auto; flex-shrink: 0;
+}
+.side-section { padding: 16px; border-bottom: 1px solid var(--border); }
+.side-section-title { font-size: 11px; color: var(--muted); letter-spacing: 1px; margin-bottom: 10px; }
+
+.concept-detail { display: none; }
+.concept-detail.visible { display: block; }
+
+.mastery-ring-wrap { text-align: center; margin: 10px 0; }
+.mastery-pct { font-size: 36px; font-weight: 900; }
+
+.gap-item { font-size: 12px; padding: 6px 0; border-bottom: 1px solid var(--border); display: flex; gap: 6px; align-items: center; }
+{% endblock %}
+
+{% block content %}
+<div class="graph-layout" style="height: calc(100vh - 50px);">
+  <!-- Graph Canvas -->
+  <div class="graph-panel">
+    <div class="graph-hint">Scroll to zoom · Drag to pan · Click node</div>
+
+    <div class="graph-controls">
+      <button class="ctrl-btn" onclick="cy.zoom(cy.zoom()*1.2)" title="Zoom In">+</button>
+      <button class="ctrl-btn" onclick="cy.zoom(cy.zoom()*0.8)" title="Zoom Out">−</button>
+      <button class="ctrl-btn" onclick="cy.fit(null, 40)" title="Fit">⊡</button>
+      <button class="ctrl-btn" onclick="cy.layout({name:'dagre', rankDir:'TB', padding:50, spacingFactor:1.4}).run()" title="Re-layout">⟳</button>
+    </div>
+
+    <div class="graph-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div><span style="color:var(--muted)">Mastered ≥80%</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div><span style="color:var(--muted)">Learning 50-79%</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div><span style="color:var(--muted)">Weak 25-49%</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div><span style="color:var(--muted)">Critical &lt;25%</span></div>
+    </div>
+
+    <div id="cy"></div>
+  </div>
+
+  <!-- Side Panel -->
+  <div class="side-info">
+    <!-- Default state -->
+    <div class="side-section" id="default-panel">
+      <div class="side-section-title">SELECT A NODE</div>
+      <div style="color:var(--muted); font-size:12px; line-height:1.6">
+        Click any concept node in the graph to see details, mastery level, and quick actions.
+      </div>
+    </div>
+
+    <!-- Concept detail (shown on click) -->
+    <div class="side-section concept-detail" id="concept-panel">
+      <div class="side-section-title">CONCEPT</div>
+      <div style="text-align:center; padding: 10px 0 16px;">
+        <div style="font-size:16px; font-weight:800; color:var(--text); margin-bottom:8px" id="detail-name">—</div>
+        <div class="mastery-ring-wrap">
+          <div class="mastery-pct" id="detail-mastery">0%</div>
+          <div style="font-size:12px; color:var(--muted)" id="detail-level">—</div>
+        </div>
+        <div style="height:6px; background:var(--surface); border-radius:3px; margin: 10px 0">
+          <div id="detail-bar" class="progress-fill" style="width:0%"></div>
+        </div>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:8px">
+        <a id="quiz-btn" href="#" class="btn btn-primary btn-sm" style="flex:1; justify-content:center">📝 Quiz</a>
+        <a href="{% url 'chatbot' %}" class="btn btn-ghost btn-sm" style="flex:1; justify-content:center">🤖 Ask AI</a>
+      </div>
+    </div>
+
+    <!-- Missing prerequisite gaps -->
+    {% if missing.critical_gaps or missing.weak_gaps %}
+    <div class="side-section">
+      <div class="side-section-title">⚠️ KNOWLEDGE GAPS</div>
+      {% for g in missing.critical_gaps|slice:":5" %}
+      <div class="gap-item">
+        <span style="color:var(--red)">●</span>
+        <div>
+          <div style="font-size:12px; color:var(--text)">{{ g.concept }}</div>
+          <div style="font-size:11px; color:var(--muted)">Missing: <span style="color:var(--red)">{{ g.blocked_by }}</span> ({{ g.prereq_mastery }}%)</div>
+        </div>
+      </div>
+      {% endfor %}
+      {% for g in missing.weak_gaps|slice:":3" %}
+      <div class="gap-item">
+        <span style="color:var(--yellow)">●</span>
+        <div>
+          <div style="font-size:12px; color:var(--text)">{{ g.concept }}</div>
+          <div style="font-size:11px; color:var(--muted)">Weak: <span style="color:var(--yellow)">{{ g.weak_prereq }}</span> ({{ g.prereq_mastery }}%)</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Ready to learn -->
+    {% if missing.ready_to_learn %}
+    <div class="side-section">
+      <div class="side-section-title">✅ READY TO LEARN</div>
+      {% for r in missing.ready_to_learn %}
+      <div style="font-size:12px; color:var(--green); padding:4px 0">✓ {{ r.concept }} ({{ r.mastery }}%)</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Subject stats -->
+    <div class="side-section">
+      <div class="side-section-title">STATS</div>
+      <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:6px">
+        <span style="color:var(--muted)">Total concepts</span>
+        <span>{{ missing.total_concepts }}</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:6px">
+        <span style="color:var(--muted)">Mastered</span>
+        <span style="color:var(--green)">{{ missing.mastered_count }}</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-size:12px">
+        <span style="color:var(--muted)">Avg mastery</span>
+        <span style="color:var(--accent)">{{ missing.avg_mastery }}%</span>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+<script>
+const graphData = JSON.parse("{{ graph_data_json|escapejs }}");
+
+// Register dagre layout
+if (typeof cytoscapeDagre !== 'undefined') cytoscape.use(cytoscapeDagre);
+
+const cy = cytoscape({
+  container: document.getElementById('cy'),
+  elements: [...graphData.nodes, ...graphData.edges],
+  style: [
+    {
+      selector: 'node',
+      style: {
+        'background-color': 'data(color)',
+        'background-opacity': 0.25,
+        'border-color': 'data(color)',
+        'border-width': 2,
+        'width': 70, 'height': 70,
+        'label': 'data(label)',
+        'color': '#f1f5f9',
+        'font-size': '11px',
+        'font-weight': '700',
+        'font-family': 'JetBrains Mono, monospace',
+        'text-valign': 'center',
+        'text-halign': 'center',
+        'text-wrap': 'wrap',
+        'text-max-width': '60px',
+      }
+    },
+    {
+      selector: 'node:selected',
+      style: {
+        'border-width': 3,
+        'border-color': '#fff',
+        'background-opacity': 0.5,
+      }
+    },
+    {
+      selector: 'edge',
+      style: {
+        'width': 1.5,
+        'line-color': '#243447',
+        'line-style': 'dashed',
+        'target-arrow-color': '#243447',
+        'target-arrow-shape': 'triangle',
+        'curve-style': 'bezier',
+        'arrow-scale': 0.8,
+      }
+    },
+    {
+      selector: 'edge.highlighted',
+      style: {
+        'line-color': 'data(color)',
+        'target-arrow-color': 'data(color)',
+        'line-style': 'solid',
+        'width': 2.5,
+      }
+    }
+  ],
+  layout: { name: 'dagre', rankDir: 'TB', padding: 50, spacingFactor: 1.4 },
+  wheelSensitivity: 0.3,
+  minZoom: 0.2,
+  maxZoom: 3,
+});
+
+// Click handler
+cy.on('tap', 'node', function(evt) {
+  const node = evt.target;
+  const data = node.data();
+
+  // Show concept panel
+  document.getElementById('default-panel').style.display = 'none';
+  const panel = document.getElementById('concept-panel');
+  panel.classList.add('visible');
+
+  document.getElementById('detail-name').textContent = data.label;
+  document.getElementById('detail-mastery').textContent = data.mastery + '%';
+  document.getElementById('detail-mastery').style.color = data.color;
+  document.getElementById('detail-level').textContent = data.level;
+  const bar = document.getElementById('detail-bar');
+  bar.style.width = data.mastery + '%';
+  bar.style.background = data.color;
+
+  // Quiz link
+  document.getElementById('quiz-btn').href = `/quiz/?concept=${data.id}`;
+
+  // Highlight connected edges
+  cy.edges().removeClass('highlighted');
+  node.connectedEdges().addClass('highlighted');
+});
+
+cy.on('tap', function(evt) {
+  if (evt.target === cy) {
+    document.getElementById('default-panel').style.display = 'block';
+    document.getElementById('concept-panel').classList.remove('visible');
+    cy.edges().removeClass('highlighted');
+  }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends 'academy/base.html' %}
+{% block topbar_title %}Administration{% endblock %}
+{% block panel %}
+<header class="portal-hero"><div><span class="eyebrow">LEARNGRAPH / CONTROL CENTER</span><h1>A clear view of<br>your learning community.</h1><p>Manage people, shape your curriculum and turn learning into measurable progress.</p><div class="ops-actions"><a class="btn btn-primary" href="{% url 'portal_accounts' %}">Manage accounts →</a><a class="btn btn-ghost" href="{% url 'academy_batch_create' %}">Create a class</a></div></div><div class="hero-orbit" aria-hidden="true"><span>LG</span></div></header>
+<div class="ops-stats"><article class="ops-stat"><span>Students</span><strong>{{ students }}</strong></article><article class="ops-stat"><span>Teachers</span><strong>{{ teachers }}</strong></article><article class="ops-stat"><span>Active classes</span><strong>{{ batches }}</strong></article><article class="ops-stat"><span>Questions to review</span><strong>{{ pending }}</strong></article></div>
+<div class="portal-tools">
+<a href="{% url 'portal_curriculum' %}"><span class="tool-icon">01</span><h2>Curriculum</h2><p>Subjects, concepts and prerequisite relationships.</p><strong>Open curriculum →</strong></a>
+<a href="{% url 'academy_dashboard' %}"><span class="tool-icon">02</span><h2>Classes & assignments</h2><p>Enroll students, generate AI drafts and publish assessments.</p><strong>Open teaching studio →</strong></a>
+<a href="{% url 'academy_questions' %}"><span class="tool-icon">03</span><h2>Question review</h2><p>Check AI answers and approve your question bank.</p><strong>Review questions →</strong></a>
+<a href="{% url 'course_register' %}"><span class="tool-icon">04</span><h2>Certificates</h2><p>Combined quiz and assignment results, verified with QR codes.</p><strong>Open certificate register →</strong></a>
+<a href="{% url 'academy_usage' %}"><span class="tool-icon">05</span><h2>AI activity</h2><p>{{ ai_today }} requests today. Inspect tokens, failures and usage.</p><strong>View usage →</strong></a>
+<a href="{% url 'academy_reports' %}"><span class="tool-icon">06</span><h2>Reports</h2><p>Assessment averages: {{ average|default_if_none:0|floatformat:1 }}%. Export learning results.</p><strong>Explore reports →</strong></a>
+</div>
+<div class="studio-grid"><section class="studio-card"><h2>Your classes</h2>{% for batch in recent_batches %}<a class="list-row" href="{% url 'academy_batch' batch.pk %}"><span>{{ batch.name }}<small>{{ batch.subject.name }} · {{ batch.teacher.username }}</small></span><span>{{ batch.student_count }} students →</span></a>{% empty %}<p>Create your first class to enroll students and generate assignments.</p>{% endfor %}</section><section class="studio-card"><h2>Recent changes</h2>{% for event in events %}<div class="list-row"><span>{{ event.action }}<small>{{ event.actor.username|default:'System' }} · {{ event.created_at|date:'d M H:i' }} BDT (UTC+6)</small></span></div>{% empty %}<p>Changes made by your team will appear here.</p>{% endfor %}<a href="{% url 'academy_audit' %}">View audit log →</a></section></div>
+{% endblock %}

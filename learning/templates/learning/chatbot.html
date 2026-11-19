@@ -1,0 +1,223 @@
+{% extends "learning/base.html" %}
+{% block title %}— AI Tutor{% endblock %}
+{% block topbar_title %}◎ AI Tutor{% endblock %}
+
+{% block extra_style %}
+.chat-wrap { display: flex; flex-direction: column; height: calc(100vh - 50px); max-width: 820px; margin: 0 auto; width: 100%; }
+.chat-quick { padding: 10px 16px; border-bottom: 1px solid var(--border); display: flex; gap: 8px; flex-wrap: wrap; }
+.quick-btn {
+  padding: 5px 12px; background: var(--card); border: 1px solid var(--border);
+  border-radius: 20px; color: var(--muted2); cursor: pointer; font-size: 12px;
+  font-family: inherit; transition: all 0.15s;
+}
+.quick-btn:hover { border-color: var(--accent); color: var(--accent); }
+.chat-messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.chat-row { display: flex; gap: 10px; }
+.chat-row.user { justify-content: flex-end; }
+.avatar { width: 32px; height: 32px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 15%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+.bubble { max-width: 82%; padding: 12px 16px; font-size: 14px; line-height: 1.65; }
+.bubble code { background: var(--bg); padding: 2px 6px; border-radius: 4px; font-size: 12px; color: var(--cyan); font-family: 'JetBrains Mono', monospace; }
+.bubble pre { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 12px; overflow-x: auto; color: var(--cyan); margin: 8px 0; font-family: 'JetBrains Mono', monospace; }
+.typing-indicator { display: flex; gap: 10px; }
+.chat-input-area { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; gap: 10px; }
+.send-btn { padding: 12px 20px; background: var(--accent); border: none; border-radius: 8px; color: #fff; cursor: pointer; font-size: 18px; transition: background 0.15s; flex-shrink: 0; }
+.send-btn:hover { background: var(--accent-h); }
+.send-btn:disabled { background: var(--muted); cursor: not-allowed; }
+.chat-wrap {height:calc(100dvh - 100px);min-height:480px;max-width:1040px;padding:20px 12px;}
+.chat-quick{padding:16px 0;gap:10px;border-bottom:0;}
+.quick-btn{font-size:14px;padding:9px 14px;}
+.chat-messages{background:var(--surface);border:1px solid var(--border);border-radius:20px 20px 0 0;padding:24px;gap:24px;}
+.bubble{font-size:16px;padding:16px 20px;border-radius:16px;overflow-wrap:anywhere;}
+.msg-assistant{background:var(--card);border:1px solid var(--border);}
+.msg-user{background:#254b85;color:#fff;}
+.chat-input-area{background:var(--card);border:1px solid var(--border);border-radius:0 0 20px 20px;padding:16px;}
+.chat-input-area .input{flex:1;min-width:0;font-size:16px;}
+@media(max-width:700px){.chat-wrap{height:calc(100dvh - 140px);padding:8px;}.chat-messages{padding:12px;}.bubble{max-width:92%;padding:12px;}.quick-btn{font-size:13px;}}
+{% endblock %}
+
+{% block content %}
+<div class="chat-wrap">
+<div class="chat-toolbar"><a class="btn btn-ghost" href="/chat/">New conversation</a><a href="/workspace/">Saved chats</a><label><input type="checkbox" id="use-notes"> Use my notes</label></div>
+  <!-- Quick prompts -->
+  <div class="chat-quick">
+    <button class="quick-btn" onclick="sendQuick(this)">Explain recursion with examples</button>
+    <button class="quick-btn" onclick="sendQuick(this)">Common mistakes in {% if subject %}{{ subject.name }}{% else %}CS{% endif %}</button>
+    <button class="quick-btn" onclick="sendQuick(this)">Give me a study plan</button>
+    <button class="quick-btn" onclick="sendQuick(this)">Explain time complexity O(n log n)</button>
+    <button class="quick-btn" onclick="sendQuick(this)">Difference between stack and queue</button>
+  </div>
+
+  <!-- Messages -->
+  <div class="chat-messages" id="chat-messages">
+    <div class="chat-row">
+      <div class="avatar">🤖</div>
+      <div class="bubble msg-assistant">
+        Hello! I'm your LearnGraph AI tutor 🤖<br><br>
+        I can help you with:<br>
+        • Explaining CS concepts clearly<br>
+        • Solving coding problems<br>
+        • Study strategies and tips<br>
+        • <strong>Anything you want to ask</strong><br><br>
+        Currently focused on <strong>{% if subject %}{{ subject.name }}{% else %}Computer Science{% endif %}</strong> — but feel free to ask me anything!
+      </div>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="chat-input-area">
+    <input class="input" id="chat-input" placeholder="Ask anything about CS, code, concepts..."
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage()}" />
+    <button class="send-btn" id="send-btn" onclick="sendMessage()">➤</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const SUBJECT = "{% if subject %}{{ subject.name|escapejs }}{% else %}Computer Science{% endif %}";
+let sessionId = Number(new URLSearchParams(location.search).get('session')) || null;
+let history = [];
+let isLoading = false;
+
+if (sessionId) {
+  fetch('/api/chat/session/' + sessionId + '/')
+    .then(r => {
+      if (!r.ok) throw new Error('Conversation unavailable');
+      return r.json();
+    })
+    .then(d => {
+      history = d.messages.slice(-20);
+
+      d.messages.forEach(m => {
+        appendBubble(m.role, m.content);
+
+        if (m.sources?.length) {
+          appendBubble(
+            'assistant',
+            'Reference passages:\n' +
+            m.sources.map((s, i) =>
+              '[' + (i + 1) + '] ' + s.title +
+              ' · section ' + s.section + '\n' + s.excerpt
+            ).join('\n\n')
+          );
+        }
+      });
+    })
+    .catch(() => {
+      sessionId = null;
+      appendBubble(
+        'assistant',
+        'This conversation is unavailable. Start a new conversation.'
+      );
+    });
+}
+
+function sendQuick(btn) { sendMessage(btn.textContent.trim()); }
+
+function sendMessage(overrideText) {
+  if (isLoading) return;
+  const input = document.getElementById('chat-input');
+  const text = (overrideText || input.value).trim();
+  if (!text) return;
+
+  input.value = '';
+  appendBubble('user', text);
+  showTyping();
+  isLoading = true;
+  document.getElementById('send-btn').disabled = true;
+
+  const newHistory = [...history, {role:'user', content:text}];
+
+  fetch('{% url "api_chat" %}', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json', 'X-CSRFToken': getCookie('csrftoken')},
+    body: JSON.stringify({message: text, subject: SUBJECT, history: history, session_id:sessionId, use_notes:document.getElementById('use-notes').checked}),
+  })
+  .then(r => r.json())
+  .then(data => {
+    removeTyping();
+    if(data.error) throw new Error(data.error);
+    sessionId=data.session_id;
+    if(sessionId)window.history.replaceState(null,'','?session='+sessionId);
+    const reply = data.reply || 'Sorry, something went wrong.';
+    appendBubble('assistant', reply);
+    if(data.sources?.length)appendBubble('assistant','Reference passages:\n'+data.sources.map((s,i)=>'['+(i+1)+'] '+s.title+' · section '+s.section+'\n'+s.excerpt).join('\n\n'));
+    history = [...newHistory, {role:'assistant', content:reply}];
+    // Keep last 20 messages to avoid token overflow
+    if (history.length > 20) history = history.slice(-20);
+  })
+  .catch((err) => {
+    removeTyping();
+    appendBubble('assistant', '⚠️ Error: ' + (err.message || 'Server unreachable. Check terminal for details.'));
+  })
+  .finally(() => {
+    isLoading = false;
+    document.getElementById('send-btn').disabled = false;
+    document.getElementById('chat-input').focus();
+  });
+}
+
+function appendBubble(role, text) {
+  const box = document.getElementById('chat-messages');
+  const row = document.createElement('div');
+  row.className = `chat-row${role==='user'?' user':''}`;
+
+  const html = formatText(text);
+
+  if (role === 'assistant') {
+    row.innerHTML = `<div class="avatar">🤖</div><div class="bubble msg-assistant">${html}</div>`;
+  } else {
+    row.innerHTML = `<div class="bubble msg-user">${escapeHtml(text)}</div>`;
+  }
+  box.appendChild(row);
+  box.scrollTop = box.scrollHeight;
+}
+
+function formatText(text) {
+  text = escapeHtml(text);
+  // Code blocks
+  text = text.replace(/```(\w+)?\n?([\s\S]*?)```/g, (_, lang, code) =>
+    `<pre><code>${code.trim()}</code></pre>`);
+  // Inline code
+  text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // Bold
+  text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  // Newlines
+  text = text.replace(/\n/g, '<br>');
+  return text;
+}
+
+function escapeHtml(t) {
+  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+let typingEl = null;
+function showTyping() {
+  const box = document.getElementById('chat-messages');
+  typingEl = document.createElement('div');
+  typingEl.className = 'chat-row typing-indicator';
+  typingEl.id = 'typing';
+  typingEl.innerHTML = `<div class="avatar">🤖</div>
+    <div class="bubble msg-assistant" style="padding:14px 18px">
+      <div class="spinner">
+        <div class="spinner-dot"></div><div class="spinner-dot"></div><div class="spinner-dot"></div>
+      </div>
+    </div>`;
+  box.appendChild(typingEl);
+  box.scrollTop = box.scrollHeight;
+}
+function removeTyping() {
+  const t = document.getElementById('typing');
+  if (t) t.remove();
+}
+
+function getCookie(name) {
+  let v = null;
+  document.cookie.split(';').forEach(c => {
+    c = c.trim();
+    if (c.startsWith(name+'=')) v = decodeURIComponent(c.slice(name.length+1));
+  });
+  return v;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,320 @@
+{% extends "learning/base.html" %}
+{% block title %}— Learning Path{% endblock %}
+{% block topbar_title %}🗺️ Learning Path{% endblock %}
+
+{% block extra_style %}
+.path-wrap { padding: 32px; display: flex; gap: 24px; flex-wrap: wrap; min-height: calc(100vh - 56px); }
+.path-main { flex: 1; min-width: 360px; }
+.path-side { width: 310px; flex-shrink: 0; }
+
+.page-header { margin-bottom: 28px; }
+.page-header h1 { font-size: 28px; font-weight: 900; letter-spacing: -0.5px; margin-bottom: 6px; }
+.page-header p { font-size: 14px; color: var(--muted2); }
+
+.summary-box {
+  background: linear-gradient(135deg, color-mix(in srgb,var(--accent2) 12%,transparent), color-mix(in srgb,var(--accent) 8%,transparent));
+  border: 1px solid color-mix(in srgb,var(--accent) 25%,transparent);
+  border-radius: 14px; padding: 16px 20px;
+  font-size: 14px; color: var(--text); line-height: 1.6; margin-bottom: 20px;
+}
+
+.step-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px; padding: 20px 22px;
+  display: flex; gap: 16px; margin-bottom: 14px;
+  transition: all 0.2s; cursor: pointer; position: relative; overflow: hidden;
+}
+.step-card::before { content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--accent2); opacity:0; transition:opacity 0.2s; border-radius:16px 0 0 16px; }
+.step-card:hover { transform: translateX(4px); border-color: var(--accent2); }
+.step-card:hover::before { opacity:1; }
+.step-card.active { border-color: var(--accent); background: color-mix(in srgb,var(--accent) 6%,transparent); }
+.step-card.active::before { opacity:1; background:var(--accent); }
+
+.step-num {
+  min-width: 42px; height: 42px; border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent2), var(--accent));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 900; color: #fff; flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(99,102,241,0.3);
+}
+.step-concept { font-size: 16px; font-weight: 800; color: var(--text) !important; margin-bottom: 5px; }
+.step-action { font-size: 13px; color: var(--muted2) !important; line-height: 1.5; margin-bottom: 8px; }
+.step-meta { display: flex; gap: 14px; flex-wrap: wrap; }
+.step-tag { font-size: 11px; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+.step-tip { font-size: 12px; color: var(--yellow); margin-top: 8px; display: flex; gap: 6px; align-items: flex-start; }
+
+.priority-badge { font-size: 10px; padding: 3px 10px; border-radius: 20px; font-weight: 700; }
+.p-high { color:var(--red); background:color-mix(in srgb,var(--red) 15%,transparent); border:1px solid color-mix(in srgb,var(--red) 30%,transparent); }
+.p-medium { color:var(--yellow); background:color-mix(in srgb,var(--yellow) 15%,transparent); border:1px solid color-mix(in srgb,var(--yellow) 30%,transparent); }
+.p-low { color:var(--green); background:color-mix(in srgb,var(--green) 15%,transparent); border:1px solid color-mix(in srgb,var(--green) 30%,transparent); }
+
+/* Side panel */
+.sug-panel { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 22px; position: sticky; top: 24px; }
+.sug-header { font-size: 16px; font-weight: 800; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+.sug-concept-badge { font-size: 12px; color: var(--accent); font-weight: 700; padding: 4px 12px; background: color-mix(in srgb,var(--accent) 12%,transparent); border: 1px solid color-mix(in srgb,var(--accent) 25%,transparent); border-radius: 20px; margin-bottom: 16px; }
+.sug-section { margin-bottom: 16px; }
+.sug-label { font-size: 10px; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; font-weight: 700; margin-bottom: 8px; }
+.sug-text { font-size: 13px; color: var(--text); line-height: 1.65; }
+.sug-mistake { font-size: 12px; color: var(--yellow); margin-bottom: 6px; display: flex; gap: 8px; align-items: flex-start; }
+.resource-link {
+  display: flex; align-items: center; gap: 12px; text-decoration: none;
+  padding: 11px 14px; background: var(--card2);
+  border: 1px solid var(--border); border-radius: 10px;
+  margin-bottom: 8px; transition: all 0.15s;
+}
+.resource-link:hover { border-color: var(--accent); transform: translateX(3px); }
+.resource-icon { width: 32px; height: 32px; border-radius: 8px; background: color-mix(in srgb,var(--accent) 15%,transparent); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+.resource-name { font-size: 12px; color: var(--text); font-weight: 700; }
+.resource-type { font-size: 11px; color: var(--muted2); margin-top: 2px; }
+
+.empty-state { text-align: center; padding: 48px 32px; background: var(--card); border: 1px solid var(--border); border-radius: 16px; }
+.empty-icon { font-size: 56px; margin-bottom: 16px; }
+.loading-state { text-align: center; padding: 48px; background: var(--card); border: 1px solid var(--border); border-radius: 16px; }
+.path-wrap{max-width:1440px;margin:auto;gap:28px;padding:24px;}
+.path-main{min-width:0;flex:1 1 560px;}.path-side{width:320px;position:sticky;top:24px;align-self:flex-start;}
+.step-card{padding:24px;}.step-action{font-size:16px;line-height:1.7;}.step-tag,.step-tip{font-size:14px;}
+@media(max-width:900px){.path-side{width:100%;position:static;}.path-wrap{padding:16px;}.step-card{padding:18px;}}
+
+.path-wrap { max-width: 1160px; }
+#guide-dialog { padding:0; width:min(860px,94vw); max-height:88dvh; border:1px solid var(--border); border-radius:22px; background:var(--card); color:var(--text); box-shadow:0 30px 100px #0009; overflow:auto; margin:auto; }
+#guide-dialog::backdrop { background:rgba(3,8,20,.76); backdrop-filter:blur(5px); }
+#guide-dialog[open] { animation:guide-enter .18s ease-out; }
+.guide-header { position:sticky; top:0; z-index:1; display:flex; align-items:flex-start; justify-content:space-between; gap:20px; padding:24px 28px; background:var(--card); border-bottom:1px solid var(--border); }
+.guide-header h2 { margin:0 0 8px; font-size:24px; overflow-wrap:anywhere; }
+.guide-header p { margin:0; color:var(--muted2); font-size:13px; }
+#guide-close { flex-shrink:0; min-width:44px; min-height:44px; }
+#guide-dialog .sug-panel { position:static; border:0; padding:28px; }
+#guide-dialog .sug-section { padding:18px; border:1px solid var(--border); border-radius:14px; margin-bottom:16px; }
+#guide-dialog .sug-text { font-size:16px; line-height:1.8; white-space:pre-wrap; }
+#guide-dialog .sug-label { font-size:12px; }
+#guide-dialog .sug-mistake { font-size:15px; line-height:1.7; }
+#guide-dialog .resource-name { font-size:15px; }
+.step-card:focus-visible, #guide-dialog button:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+html.guide-open { overflow:hidden; }
+@keyframes guide-enter { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+@media(max-width:600px) { #guide-dialog { width:96vw; max-height:94dvh; } .guide-header, #guide-dialog .sug-panel { padding:16px; } .step-card { gap:10px; } }
+@media(prefers-reduced-motion:reduce) { #guide-dialog[open] { animation:none; } }
+{% endblock %}
+
+{% block content %}
+<div style="padding:16px 32px 0;color:var(--muted2);font-size:14px">{% if path_data.source == "ai" %}AI-generated plan{% else %}Practice plan · based on concept mastery{% endif %}</div>
+<div class="path-wrap">
+  <div class="path-main">
+    <div class="page-header">
+      <h1>🗺️ Learning Path</h1>
+      <p>AI-personalized roadmap for {% if subject %}{{ subject.name }}{% endif %}</p>
+    </div>
+
+    <div id="path-loading" style="display:none" class="loading-state">
+      <div style="font-size:48px;margin-bottom:16px">🤖</div>
+      <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px">Generating AI Path</div>
+      <div style="font-size:13px;color:var(--muted2);margin-bottom:20px">Analyzing your progress...</div>
+      <div class="spinner" style="justify-content:center"><div class="spinner-dot"></div><div class="spinner-dot"></div><div class="spinner-dot"></div></div>
+    </div>
+
+    <div id="path-content">
+      {% if path_data and path_data.path %}
+      <div class="summary-box">
+        💡 {{ path_data.summary }}
+        {% if path_data.estimated_days %}<span style="color:var(--accent);font-weight:700;margin-left:8px">· Est. {{ path_data.estimated_days }} days</span>{% endif %}
+      </div>
+      <div id="steps-list">
+        {% for step in path_data.path %}
+        <div role="button" tabindex="0" aria-haspopup="dialog" class="step-card" data-concept="{{ step.concept }}" onclick="handleClick(this)">
+          <div class="step-num">{{ step.step }}</div>
+          <div style="flex:1">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+              <div class="step-concept">{{ step.concept }}</div>
+              <span class="priority-badge {% if step.priority == 'High' %}p-high{% elif step.priority == 'Low' %}p-low{% else %}p-medium{% endif %}">{{ step.priority|default:"Medium" }}</span>
+            </div>
+            <div class="step-action">{{ step.action }}</div>
+            <div class="step-meta">
+              <span class="step-tag" style="color:var(--cyan)">⏱ {{ step.time }}</span>
+              <span class="step-tag" style="color:var(--green)">📚 {{ step.resource }}</span>
+            </div>
+            {% if step.tip %}<div class="step-tip"><span>💡</span><span>{{ step.tip }}</span></div>{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <div class="empty-icon">🗺️</div>
+        <div style="font-size:18px;font-weight:800;margin-bottom:8px">No Path Yet</div>
+        <div style="color:var(--muted2);margin-bottom:24px;font-size:14px">Click Generate to create your personalized AI learning path</div>
+      </div>
+      {% endif %}
+    </div>
+
+    <button onclick="regeneratePath()" id="regen-btn" class="btn btn-primary" style="width:100%;margin-top:16px;justify-content:center">
+      🔄 Regenerate Path with AI
+    </button>
+  </div>
+
+  <dialog id="guide-dialog" aria-labelledby="guide-title">
+    <div class="guide-header">
+      <div><h2 id="guide-title">Learning Guide</h2><p>AI study advice · Check important facts with your course materials.</p></div>
+      <button type="button" class="btn btn-ghost" id="guide-close" aria-label="Close learning guide">✕</button>
+    </div>
+    <div class="sug-panel">
+
+      <div id="sug-default">
+        <div style="text-align:center;padding:20px 0">
+          <div style="font-size:40px;margin-bottom:12px">👈</div>
+          <div style="font-size:13px;color:var(--muted2);line-height:1.6">Click any step to get detailed AI learning advice</div>
+        </div>
+      </div>
+
+      <div id="sug-loading" style="display:none;text-align:center;padding:24px 0">
+        <div style="font-size:36px;margin-bottom:12px">🤖</div>
+        <div style="color:var(--accent);font-size:13px;margin-bottom:14px;font-weight:600">Getting AI advice...</div>
+        <div class="spinner" style="justify-content:center"><div class="spinner-dot"></div><div class="spinner-dot"></div><div class="spinner-dot"></div></div>
+      </div>
+
+      <div id="sug-error" style="display:none;text-align:center;padding:16px 0">
+        <div id="suggestion-error-message" role="alert" style="color:var(--muted2);font-size:14px;margin-bottom:10px">Suggestions are unavailable right now.</div>
+        <button onclick="retry()" class="btn btn-ghost btn-sm">🔄 Retry</button>
+      </div>
+
+      <div id="sug-content" style="display:none">
+        <div id="sug-concept-badge" class="sug-concept-badge"></div>
+        <div class="sug-section">
+          <div class="sug-label">📋 Strategy</div>
+          <div class="sug-text" id="sug-strategy"></div>
+        </div>
+        <div class="sug-section">
+          <div class="sug-label">💪 Practice</div>
+          <div class="sug-text" style="color:var(--green)" id="sug-practice"></div>
+        </div>
+        <div class="sug-section">
+          <div class="sug-label">⚠️ Common Mistakes</div>
+          <div id="sug-mistakes"></div>
+        </div>
+        <div class="sug-section">
+          <div class="sug-label">📚 Resources</div>
+          <div id="sug-resources"></div>
+        </div>
+        <div class="sug-section">
+          <div class="sug-label">⏱ Estimated Time</div>
+          <div class="sug-text" style="color:var(--cyan)" id="sug-days"></div>
+        </div>
+      </div>
+    </div>
+  </dialog>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const SUBJECT_ID = {{ subject.id|default:1 }};
+const cache = Object.create(null);
+let guideRequest = 0;
+let lastConcept = null, lastCard = null;
+
+const resourceIcons = {'Video':'📺','Article':'📖','Practice':'💻','Reference':'📚','Course':'🎓'};
+
+function handleClick(card) {
+  const name = card.getAttribute('data-concept');
+  if (!name) return;
+  document.querySelectorAll('.step-card').forEach(c => c.classList.remove('active'));
+  card.classList.add('active');
+  lastConcept = name; lastCard = card;
+  const requestId = ++guideRequest;
+  document.getElementById('guide-title').textContent = name + ' · Learning Guide';
+  if (!guideDialog.open) guideDialog.showModal();
+  document.documentElement.classList.add('guide-open');
+  if (cache[name]) { render(name, cache[name]); return; }
+  show('loading');
+  fetch('/api/suggestion/by-name/?name=' + encodeURIComponent(name) + '&subject=' + SUBJECT_ID)
+    .then(async r => { const data = await r.json(); if (!r.ok) throw new Error(data.error || 'HTTP ' + r.status); return data; })
+    .then(d => { if (d.error) throw new Error(d.error); cache[name] = d; if (requestId === guideRequest) render(name, d); })
+    .catch(e => { if (requestId !== guideRequest) return; document.getElementById('suggestion-error-message').textContent=e.message; show('error'); });
+}
+
+function retry() { if (lastConcept) { delete cache[lastConcept]; handleClick(lastCard); } }
+
+function render(name, d) {
+  document.getElementById('sug-concept-badge').textContent = '📌 ' + name;
+  document.getElementById('sug-strategy').textContent = d.strategy || '—';
+  document.getElementById('sug-practice').textContent = d.practice || '—';
+  document.getElementById('sug-days').textContent = d.estimated_days ? d.estimated_days + ' days (estimated)' : '—';
+  document.getElementById('sug-mistakes').innerHTML = (d.mistakes || []).map(m =>
+    '<div class="sug-mistake"><span>⚠</span><span>' + escapeHtml(m) + '</span></div>').join('');
+  document.getElementById('sug-resources').innerHTML = (d.resources || []).map(r => {
+    const type = (r.type||'').replace(/[📺📖💻📚🎓]\s*/,'').trim();
+    const icon = resourceIcons[type] || '🔗';
+    return '<a href="' + escapeHtml(r.url) + '" target="_blank" rel="noopener" class="resource-link">' +
+      '<div class="resource-icon">' + icon + '</div>' +
+      '<div><div class="resource-name">' + escapeHtml(r.name) + '</div>' +
+      '<div class="resource-type">' + escapeHtml(type) + ' ↗</div></div></a>';
+  }).join('');
+  show('content');
+}
+
+function show(which) {
+  ['default','loading','error','content'].forEach(id => {
+    const el = document.getElementById('sug-' + id);
+    if (el) el.style.display = id === which ? 'block' : 'none';
+  });
+}
+
+function regeneratePath() {
+  document.getElementById('path-content').style.display = 'none';
+  document.getElementById('path-loading').style.display = 'block';
+  document.getElementById('regen-btn').disabled = true;
+  fetch('/api/path/' + SUBJECT_ID + '/').then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(data => { if (data.error) throw new Error(data.error); renderNewPath(data); })
+    .catch(e => {
+      document.getElementById('path-loading').style.display = 'none';
+      document.getElementById('path-content').style.display = 'block';
+      document.getElementById('regen-btn').disabled = false;
+      alert('Error: ' + e.message);
+    });
+}
+
+function renderNewPath(data) {
+  const pc = p => p==='High'?'p-high':p==='Low'?'p-low':'p-medium';
+  const steps = (data.path||[]).map(s =>
+    '<div role="button" tabindex="0" aria-haspopup="dialog" class="step-card" data-concept="' + escapeHtml(s.concept||'') + '" onclick="handleClick(this)">' +
+    '<div class="step-num">' + escapeHtml(s.step) + '</div>' +
+    '<div style="flex:1">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">' +
+    '<div class="step-concept">' + escapeHtml(s.concept||'') + '</div>' +
+    '<span class="priority-badge ' + pc(s.priority) + '">' + escapeHtml(s.priority||'Medium') + '</span></div>' +
+    '<div class="step-action">' + escapeHtml(s.action||'') + '</div>' +
+    '<div class="step-meta">' +
+    '<span class="step-tag" style="color:var(--cyan)">⏱ ' + escapeHtml(s.time||'') + '</span>' +
+    '<span class="step-tag" style="color:var(--green)">📚 ' + escapeHtml(s.resource||'') + '</span></div>' +
+    (s.tip ? '<div class="step-tip"><span>💡</span><span>' + escapeHtml(s.tip) + '</span></div>' : '') +
+    '</div></div>').join('');
+
+  document.getElementById('path-content').innerHTML =
+    '<div class="summary-box">💡 ' + escapeHtml(data.summary||'') +
+    (data.estimated_days ? '<span style="color:var(--accent);font-weight:700;margin-left:8px">· Est. ' + escapeHtml(data.estimated_days) + ' days</span>' : '') +
+    '</div><div id="steps-list">' + steps + '</div>';
+
+  document.getElementById('path-loading').style.display = 'none';
+  document.getElementById('path-content').style.display = 'block';
+  document.getElementById('regen-btn').disabled = false;
+  Object.keys(cache).forEach(k => delete cache[k]);
+  show('default');
+}
+
+const guideDialog = document.getElementById('guide-dialog');
+document.getElementById('guide-close').addEventListener('click', () => guideDialog.close());
+guideDialog.addEventListener('close', () => {
+  document.documentElement.classList.remove('guide-open');
+  if (lastCard && lastCard.isConnected) lastCard.focus();
+});
+guideDialog.addEventListener('click', event => {
+  const bounds = guideDialog.getBoundingClientRect();
+  if (event.target === guideDialog && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom)) guideDialog.close();
+});
+document.getElementById('path-content').addEventListener('keydown', event => {
+  const card = event.target.closest('.step-card');
+  if (card && (event.key === 'Enter' || event.key === ' ')) {
+    event.preventDefault(); handleClick(card);
+  }
+});
+</script>
+{% endblock %}
